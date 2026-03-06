@@ -232,4 +232,4 @@ npm run db:indexes
 npm run db:seed
 
 # 9. Start development server
-npm run dev
+npm run dev"# kiro_guri_backend" 

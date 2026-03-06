@@ -196,20 +196,18 @@ const reportSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtual for age (in days)
+// Virtuals
 reportSchema.virtual('age').get(function() {
   const diffMs = Date.now() - this.createdAt;
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 });
 
-// Virtual for response time (in hours)
 reportSchema.virtual('responseTime').get(function() {
   if (!this.assignedAt) return null;
   const diffMs = this.assignedAt - this.createdAt;
   return Math.round(diffMs / (1000 * 60 * 60));
 });
 
-// Virtual for resolution time (in hours)
 reportSchema.virtual('resolutionTime').get(function() {
   if (!this.resolution?.resolvedAt) return null;
   const diffMs = this.resolution.resolvedAt - this.createdAt;
@@ -228,7 +226,6 @@ reportSchema.index({ 'resolution.resolvedAt': -1 });
 
 // Pre-save middleware
 reportSchema.pre('save', async function(next) {
-  // Generate report number if not exists
   if (!this.reportNumber) {
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
@@ -237,7 +234,6 @@ reportSchema.pre('save', async function(next) {
     this.reportNumber = `RPT${year}${month}${random}`;
   }
   
-  // Set priority based on reason
   if (!this.priority) {
     const priorityMap = {
       'illegal': 'critical',
@@ -259,16 +255,20 @@ reportSchema.pre('save', async function(next) {
   next();
 });
 
-// Methods
-reportSchema.methods.assign = async function(adminId) {
+// ============================================
+// METHODS (All method names are different from schema fields)
+// ============================================
+
+// Assign report to admin
+reportSchema.methods.assignTo = async function(adminId) {
   this.assignedTo = adminId;
   this.assignedAt = new Date();
   this.status = 'reviewing';
-  
   return this.save();
 };
 
-reportSchema.methods.addAction = async function(action, description, takenBy, effectiveUntil = null) {
+// Add action to report
+reportSchema.methods.addActionItem = async function(action, description, takenBy, effectiveUntil = null) {
   this.actions.push({
     type: action,
     description,
@@ -276,11 +276,11 @@ reportSchema.methods.addAction = async function(action, description, takenBy, ef
     takenAt: new Date(),
     effectiveUntil
   });
-  
   return this.save();
 };
 
-reportSchema.methods.resolve = async function(decision, summary, resolvedBy) {
+// Resolve report
+reportSchema.methods.resolveReport = async function(decision, summary, resolvedBy) {
   this.status = 'resolved';
   this.resolution = {
     decision,
@@ -288,11 +288,11 @@ reportSchema.methods.resolve = async function(decision, summary, resolvedBy) {
     resolvedAt: new Date(),
     resolvedBy
   };
-  
   return this.save();
 };
 
-reportSchema.methods.dismiss = async function(reason, dismissedBy) {
+// Dismiss report
+reportSchema.methods.dismissReport = async function(reason, dismissedBy) {
   this.status = 'dismissed';
   this.notes.push({
     note: `Report dismissed: ${reason}`,
@@ -300,11 +300,11 @@ reportSchema.methods.dismiss = async function(reason, dismissedBy) {
     addedAt: new Date(),
     isPrivate: true
   });
-  
   return this.save();
 };
 
-reportSchema.methods.escalate = async function(reason, escalatedBy) {
+// Escalate report
+reportSchema.methods.escalateReport = async function(reason, escalatedBy) {
   this.status = 'escalated';
   this.priority = 'critical';
   this.notes.push({
@@ -313,44 +313,46 @@ reportSchema.methods.escalate = async function(reason, escalatedBy) {
     addedAt: new Date(),
     isPrivate: true
   });
-  
   return this.save();
 };
 
-reportSchema.methods.addNote = async function(note, addedBy, isPrivate = true) {
+// Add note to report
+reportSchema.methods.addNoteToReport = async function(note, addedBy, isPrivate = true) {
   this.notes.push({
     note,
     addedBy,
     addedAt: new Date(),
     isPrivate
   });
-  
   return this.save();
 };
 
-reportSchema.methods.appeal = async function(reason, requestedBy) {
+// Submit appeal - ⚠️ MAGACA WAA LA BEDDELAY "submitAppeal"
+reportSchema.methods.submitAppeal = async function(reason, requestedBy) {
   this.appeal = {
     requested: true,
     reason,
     requestedBy,
     requestedAt: new Date()
   };
-  
   return this.save();
 };
 
-reportSchema.methods.decideAppeal = async function(decision, decidedBy) {
+// Decide on appeal
+reportSchema.methods.decideOnAppeal = async function(decision, decidedBy) {
   if (this.appeal && this.appeal.requested) {
     this.appeal.decision = decision;
     this.appeal.decidedAt = new Date();
     this.appeal.decidedBy = decidedBy;
-    
     await this.save();
   }
   return this;
 };
 
-// Static methods
+// ============================================
+// STATIC METHODS
+// ============================================
+
 reportSchema.statics.getPendingReports = function(limit = 50) {
   return this.find({ 
     status: { $in: ['pending', 'reviewing'] } 
@@ -421,7 +423,7 @@ reportSchema.statics.getAverageResolutionTime = async function() {
       resolutionTime: { 
         $divide: [
           { $subtract: ['$resolution.resolvedAt', '$createdAt'] },
-          1000 * 60 * 60 // Convert to hours
+          1000 * 60 * 60
         ]
       }
     }},
