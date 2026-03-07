@@ -20,9 +20,12 @@ mongoose.connect(MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
-.then(() => {
+.then(async () => {
     console.log('✅ MongoDB connected successfully');
     console.log('📁 Using database: kirada_guryaha');
+
+    // RUN SETUP AFTER DB CONNECT
+    await setupDatabase();
 })
 .catch(err => {
     console.error('❌ MongoDB connection error:', err);
@@ -35,6 +38,12 @@ mongoose.connect(MONGODB_URI, {
 const setupDatabase = async () => {
     try {
         console.log('\n🔄 Auto database setup started...');
+        
+        // Check if connection is ready
+        if (mongoose.connection.readyState !== 1) {
+            console.log('⏳ Database not ready yet, waiting...');
+            return;
+        }
         
         const db = mongoose.connection.db;
         
@@ -80,18 +89,18 @@ const setupDatabase = async () => {
         
         if (userCount === 0) {
             const salt = await bcrypt.genSalt(10);
-            const passwordHash = await bcrypt.hash('admin123', salt);
+            const hashedPassword = await bcrypt.hash('admin123', salt);
             
-            // await usersCollection.insertOne({
-            //     name: "Admin User",
-            //     email: "admin@kirada.com",
-            //     phone: "+252612345678",
-            //     passwordHash,
-            //     role: "admin",
-            //     isVerified: true,
-            //     createdAt: new Date(),
-            //     updatedAt: new Date()
-            // });
+            await usersCollection.insertOne({
+                name: "Admin User",
+                email: "admin@kirada.com",
+                phone: "+252612345678",
+                password: hashedPassword, // Changed from passwordHash to password
+                role: "admin",
+                isVerified: true,
+                createdAt: new Date(),
+                updatedAt: new Date()
+            });
             
             results.sampleData.push('Created admin user');
             console.log('✅ Created admin user');
