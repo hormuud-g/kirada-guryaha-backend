@@ -8,6 +8,9 @@ dotenv.config();
 
 const app = express();
 
+// Import routes
+const publicRoutes = require('./src/routes/publicRoutes');  // ✅ ADDED
+
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -95,7 +98,7 @@ const setupDatabase = async () => {
                 name: "Admin User",
                 email: "admin@kirada.com",
                 phone: "+252612345678",
-                password: hashedPassword, // Changed from passwordHash to password
+                password: hashedPassword,
                 role: "admin",
                 isVerified: true,
                 createdAt: new Date(),
@@ -138,10 +141,14 @@ app.get('/', (req, res) => {
         endpoints: {
             health: '/health',
             setup: '/api/setup-db',
-            collections: '/api/collections'
+            collections: '/api/collections',
+            public: '/api/public'  // ✅ Show public endpoints exist
         }
     });
 });
+
+// ✅ PUBLIC ROUTES - THIS IS THE KEY!
+app.use('/api/public', publicRoutes);
 
 // Manual setup route
 app.get('/api/setup-db', async (req, res) => {
@@ -202,16 +209,17 @@ const server = app.listen(PORT, () => {
 ║    Running on port: ${PORT}                ║
 ║    Health: http://localhost:${PORT}/health ║
 ║    Setup:  http://localhost:${PORT}/api/setup-db ║
+║    Public: http://localhost:${PORT}/api/public ║
 ╚════════════════════════════════════════╝
     `);
     
-    // AUTO SETUP - HADDA WAXAY SHAQEYN DOONTAa
+    // AUTO SETUP
     console.log('🔄 Auto setup will run in 3 seconds...');
     
     setTimeout(async () => {
         console.log('⏰ Auto setup timer triggered...');
         await setupDatabase();
-    }, 3000); // 3 seconds
+    }, 3000);
 });
 
 // Handle unhandled rejections
