@@ -1,4 +1,4 @@
-// src/app.js - FULL POSTMAN COMPATIBLE
+// src/app.js - FULL VERSION WITH SWAGGER
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -37,6 +37,11 @@ const publicController = require('./controllers/publicController');
 
 // Import constants
 const { APP_NAME, HTTP_STATUS } = require('./constants/index');
+
+// ============================================
+// Swagger Documentation
+// ============================================
+const { swaggerUi, swaggerUiOptions, specs } = require('./config/swagger');
 
 // Initialize express app
 const app = express();
@@ -88,6 +93,31 @@ app.use(requestLogger);
 // app.use('/api/admin', rateLimiters.admin);
 
 // ============================================
+// SWAGGER DOCUMENTATION ROUTES
+// ============================================
+
+// Swagger UI
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, swaggerUiOptions));
+
+// Swagger JSON
+app.get('/api-docs.json', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(specs);
+});
+
+// Swagger YAML
+app.get('/api-docs.yaml', (req, res) => {
+  const yaml = require('js-yaml');
+  res.setHeader('Content-Type', 'text/yaml');
+  res.send(yaml.dump(specs));
+});
+
+// Redirect to Swagger UI
+app.get('/docs', (req, res) => {
+  res.redirect('/api-docs');
+});
+
+// ============================================
 // HEALTH CHECK ENDPOINTS
 // ============================================
 
@@ -104,6 +134,7 @@ app.get('/health', async (req, res) => {
       uptime: process.uptime(),
       database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
       collections: collections.map(c => c.name),
+      swagger: '/api-docs',
       environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
@@ -113,6 +144,7 @@ app.get('/health', async (req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      swagger: '/api-docs',
       environment: process.env.NODE_ENV || 'development'
     });
   }
@@ -123,7 +155,8 @@ app.get('/version', (req, res) => {
   res.json({
     success: true,
     version: process.env.npm_package_version || '1.0.0',
-    name: APP_NAME || 'Kirada Guryaha API'
+    name: APP_NAME || 'Kirada Guryaha API',
+    swagger: '/api-docs'
   });
 });
 
@@ -133,8 +166,11 @@ app.get('/', (req, res) => {
     success: true,
     message: `${APP_NAME || 'Kirada Guryaha'} API`,
     version: process.env.npm_package_version || '1.0.0',
-    documentation: 'Use /api/public/endpoints to see all available endpoints',
-    postman: 'Import this URL to Postman: http://localhost:5000/api/public/postman'
+    documentation: {
+      swagger: '/api-docs',
+      endpoints: '/api/public/endpoints',
+      postman: 'http://localhost:5000/api/public/endpoints'
+    }
   });
 });
 
@@ -143,10 +179,15 @@ app.get('/', (req, res) => {
 // ============================================
 
 app.get('/api/public/endpoints', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  
   const endpoints = {
     server: {
       health: { url: '/health', method: 'GET', description: 'Server health check' },
-      version: { url: '/version', method: 'GET', description: 'API version' }
+      version: { url: '/version', method: 'GET', description: 'API version' },
+      swagger: { url: '/api-docs', method: 'GET', description: 'Swagger UI Documentation' },
+      swaggerJson: { url: '/api-docs.json', method: 'GET', description: 'Swagger JSON spec' },
+      docs: { url: '/docs', method: 'GET', description: 'Redirect to Swagger UI' }
     },
     public: {
       districts: { url: '/api/public/districts', method: 'GET', description: 'Get all Mogadishu districts' },
@@ -232,7 +273,8 @@ app.get('/api/public/endpoints', (req, res) => {
   res.json({
     success: true,
     message: 'All available endpoints',
-    baseUrl: `http://localhost:${process.env.PORT || 5000}`,
+    baseUrl,
+    swagger: `${baseUrl}/api-docs`,
     endpoints
   });
 });
@@ -318,7 +360,10 @@ app.get('/api/collections', async (req, res) => {
 // ERROR HANDLING
 // ============================================
 
+// 404 handler
 app.use(notFound);
+
+// Global error handler
 app.use(errorHandler);
 
 module.exports = app;
