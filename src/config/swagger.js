@@ -1528,7 +1528,7 @@ const specs = swaggerJsdoc(options);
 // Custom Swagger UI options
 const swaggerUiOptions = {
   explorer: true,
-  customCss: '.swagger-ui .topbar { display: none } .swagger-ui .info { margin: 20px 0 }',
+  customCss: '.swagger-ui .topbar { display: none } .swagger-ui .info { margin: 20px 0 } .swagger-ui .scheme-container { margin: 10px 0 }',
   customSiteTitle: 'Kirada Guryaha API Documentation',
   customfavIcon: 'https://kirada-guryaha-backend.onrender.com/favicon.ico',
   swaggerOptions: {
